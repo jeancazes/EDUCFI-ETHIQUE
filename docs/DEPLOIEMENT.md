@@ -1,29 +1,27 @@
 # Déploiement sur le serveur perso (ex. laboratoirefabuleux.com)
 
-Principe : un `git push` sur `main` lance GitHub Actions, qui vérifie le code puis synchronise `public/` vers le serveur par SSH (rsync).
+Principe : un `git push` sur `main` lance GitHub Actions, qui vérifie le code puis envoie `public/` vers le serveur par FTP (FTPS).
 Les données des élèves (`api/data/`) ne sont jamais écrasées ni supprimées.
 
 ## Prérequis serveur
-- Hébergement avec **PHP ≥ 8.0** et **accès SSH** (Hostinger : activer SSH dans hPanel ; le port est souvent 65002, à vérifier).
+- Hébergement avec **PHP ≥ 8.0** et un **compte FTP** (Hostinger : hPanel → Fichiers → **Comptes FTP**).
 - Serveur **Apache/LiteSpeed** (les `.htaccess` protègent `config.php` et `api/data/`). Avec Nginx, ajouter les règles équivalentes (voir plus bas).
 - HTTPS activé.
 
-## 1. Clé SSH dédiée
-```bash
-ssh-keygen -t ed25519 -f deploy_educfi -C "github-actions-educfi" -N ""
-```
-- Ajouter `deploy_educfi.pub` aux clés autorisées du serveur (hPanel → SSH → clés, ou `~/.ssh/authorized_keys`).
-- Le contenu de `deploy_educfi` (clé privée) ira dans un secret GitHub. Ne jamais le committer.
+## 1. Compte FTP
+Dans hPanel → Comptes FTP, relever : **hôte** (ex. `ftp.laboratoirefabuleux.com` ou une IP), **utilisateur**, **mot de passe** (le réinitialiser si besoin).
+Idéal : créer un compte FTP **limité au dossier** `educfi` pour que GitHub n'ait pas accès au reste du site.
 
 ## 2. Secrets GitHub (Settings → Secrets and variables → Actions)
 | Secret | Exemple | Rôle |
 |---|---|---|
-| `SSH_HOST` | `123.45.67.89` ou `ssh.exemple.com` | serveur |
-| `SSH_PORT` | `65002` | port SSH |
-| `SSH_USER` | `u123456789` | utilisateur SSH |
-| `SSH_KEY` | contenu de `deploy_educfi` | clé privée |
-| `REMOTE_PATH` | `domains/laboratoirefabuleux.com/public_html/educfi` | dossier cible (créé au besoin) |
-| `TEACHER_PASSWORD` | un mot de passe long | accès à `/prof/` (seul son hash SHA-256 est envoyé au serveur) |
+| `FTP_HOST` | `ftp.laboratoirefabuleux.com` | serveur FTP |
+| `FTP_USER` | `u123456789.educfi` | utilisateur FTP |
+| `FTP_PASSWORD` | (mot de passe du compte FTP) | connexion |
+| `REMOTE_PATH` | `/public_html/educfi/` ou `./` | dossier cible, **avec `/` final** ; `./` si le compte FTP est déjà limité au dossier |
+| `TEACHER_PASSWORD` | un mot de passe long, **différent** du FTP | accès à `/prof/` (seul son hash SHA-256 est envoyé au serveur) |
+
+Le mot de passe FTP n'est jamais écrit dans le dépôt : il reste dans les secrets GitHub.
 
 ## 3. Premier déploiement
 1. Pousser le dépôt sur GitHub (branche `main`).
@@ -39,6 +37,12 @@ Si l'un des deux premiers points répond 200 : le serveur n'applique pas les `.h
 ```nginx
 location ~ ^/educfi/api/(data/|config\.php|lib\.php) { deny all; }
 ```
+
+## Si le déploiement échoue
+- *Timeout / connexion refusée* : vérifier l'hôte ; essayer `protocol: ftp` dans `.github/workflows/deploy.yml`.
+- *Fichiers au mauvais endroit* : corriger `REMOTE_PATH` (chemin vu depuis la racine du compte FTP).
+- Le fichier `.ftp-deploy-sync-state.json` est créé sur le serveur par l'action (il suit les fichiers envoyés) : ne pas le supprimer, il est protégé par `.htaccess`.
+- Les données des élèves (`api/data/`) sont exclues de l'envoi : elles ne sont ni écrasées ni supprimées.
 
 ## Changer le mot de passe enseignant
 Modifier le secret `TEACHER_PASSWORD`, puis relancer le workflow.

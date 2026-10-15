@@ -32,7 +32,7 @@ docs/                    DEPLOIEMENT.md, RGPD.md
 4. Débrief avec les **fiches élève** (A4 recto-verso, questions de débrief + entraînement type quiz Passeport) ; évaluation avec la **grille**.
 
 ## Déploiement
-`git push` sur `main` → GitHub Actions → rsync SSH vers le serveur. Voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+`git push` sur `main` → GitHub Actions → FTP(S) vers le serveur. Voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
 Données personnelles : [docs/RGPD.md](docs/RGPD.md).
 
 ## Points d'attention

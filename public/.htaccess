@@ -1,0 +1,5 @@
+# Fichier d'état du déploiement FTP : ne jamais le servir.
+<Files ".ftp-deploy-sync-state.json">
+  Require all denied
+</Files>
+Options -Indexes
