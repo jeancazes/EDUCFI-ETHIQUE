@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arnaque ou pas ?</title>
+<style>
+  :root{--bg:#10151f;--card:#1a2233;--ink:#f1f4f9;--muted:#a8b3c6;--line:#2f3b55;--accent:#ffcf33;--ok:#4cc38a;--bad:#ff6b6b;--warn:#ff9f43}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+  .wrap{max-width:900px;margin:0 auto;padding:16px}
+  h1{font-size:1.3rem;margin:0}
+  header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 0}
+  .code{display:flex;gap:6px}
+  .slot{width:34px;height:42px;border:2px dashed var(--line);border-radius:8px;display:grid;place-items:center;font-weight:800;font-size:1.3rem;color:var(--accent);background:#0d121b}
+  .slot.on{border-style:solid;border-color:var(--accent)}
+  .intro,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin:12px 0}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:left;color:var(--ink);cursor:pointer;font:inherit;min-height:110px}
+  .tile:hover,.tile:focus-visible{outline:2px solid var(--accent)}
+  .tile .n{font-size:.78rem;color:var(--muted)}
+  .tile .t{font-weight:700}
+  .tile.done{border-color:var(--ok);background:#12301f}
+  .tile.done::after{content:" ✔";color:var(--ok)}
+  button{font:inherit;cursor:pointer}
+  .btn{background:#26385a;color:var(--ink);border:1px solid #46639a;border-radius:10px;padding:10px 14px}
+  .btn:hover,.btn:focus-visible{background:#2f4772;outline:2px solid var(--accent)}
+  .btn.primary{background:var(--accent);color:#1d1600;border:0;font-weight:700}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  .doc{background:#f6f7f9;color:#1a1d23;border-radius:12px;padding:16px;margin:12px 0;position:relative;font-size:.97rem;overflow:hidden}
+  .doc::before{content:"SIMULATION PÉDAGOGIQUE";position:absolute;right:-30px;top:10px;transform:rotate(25deg);background:#c0392b;color:#fff;font-size:.62rem;font-weight:800;padding:2px 36px;letter-spacing:.06em}
+  .doc .hdr{font-size:.8rem;color:#586072;border-bottom:1px solid #d3d8e0;margin-bottom:8px;padding-bottom:6px}
+  .doc button.clue{all:unset;cursor:pointer;border-bottom:2px dotted #8d96a8;padding:0 1px}
+  .doc button.clue:hover,.doc button.clue:focus-visible{background:#ffe9a8;outline:2px solid #e0a800}
+  .doc button.clue.found{background:#ffd9a8;border-bottom:2px solid #d9480f}
+  .verdicts{display:grid;gap:8px;margin-top:10px}
+  .fb{margin-top:12px;border-radius:10px;padding:12px}
+  .fb.ok{background:#12352a;border-left:4px solid var(--ok)}
+  .fb.no{background:#3a1d24;border-left:4px solid var(--bad)}
+  .fb.hint{background:#35291a;border-left:4px solid var(--warn)}
+  input[type=text]{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--line);background:#0d121b;color:var(--ink);text-transform:uppercase;letter-spacing:.2em;width:12em}
+  ul{padding-left:1.2em} a{color:#8ccaff}
+  .small{color:var(--muted);font-size:.82rem}
+  .tag{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:700}
+  .tag.a{background:#5a1f27;color:#ffb3b8}.tag.p{background:#5a3a14;color:#ffd199}.tag.r{background:#14452e;color:#a3e8c5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🔐 Arnaque ou pas ?</h1>
+    <div class="code" id="code" aria-label="Code secret à reconstituer"></div>
+  </header>
+  <main id="app"></main>
+  <p class="small">Escape game pédagogique • tous les documents sont <b>fictifs</b> (noms, sites, numéros). Les numéros et plateformes d'aide cités à la fin sont réels. Durée : 20 à 30 min.</p>
+</div>
+
+<script src="../../assets/suivi.js"></script>
+<script>
+"use strict";
+const WORD = "SIGNALER";
+// verdicts : A = arnaque (illégal), P = légal mais piégeux, R = rien d'anormal
+const DOCS = [
+ {id:1, title:"Le SMS du colis", v:"A", min:2,
+  doc:`<div class="hdr">SMS • numéro inconnu • 07h12</div>
+   <p>« Postex : votre colis est en attente. <button class="clue" data-c="u">Frais de livraison de 1,99 € à régler dans les 24 h</button> sinon retour à l'expéditeur : <button class="clue" data-c="l">postex-livraison-suivi.top/ab12</button> »</p>
+   <p class="small" style="color:#586072">Tu n'attends aucun colis en ce moment.</p>`,
+  clues:["u","l"], txt:{u:"Urgence et petite somme pour que tu ne réfléchisses pas.", l:"Le lien ne ressemble pas au site officiel : nom bizarre, terminaison inhabituelle."},
+  expl:"C'est du <b>smiShing</b> (hameçonnage par SMS). Le but : récupérer ton numéro de carte, pas 1,99 €. Ne clique pas, ne réponds pas. Signale le SMS au <b>33700</b> (gratuit)."},
+ {id:2, title:"Le « conseiller » de la banque", v:"A", min:3,
+  doc:`<div class="hdr">Appel entrant • numéro affiché : celui de ta banque • 18h45</div>
+   <p>« Bonjour, ici Marc, du service sécurité de Banque Alpha. <button class="clue" data-c="f">Nous avons détecté des opérations frauduleuses sur votre compte</button>. Pour sécuriser votre argent, <button class="clue" data-c="v">il faut virer vos économies immédiatement vers un compte sécurisé</button>. Je vais vous envoyer un code par SMS : <button class="clue" data-c="c">donnez-le-moi pour valider</button>. »</p>`,
+  clues:["f","v","c"], txt:{f:"Il crée la peur pour te faire agir vite.", v:"Aucune banque ne te demande de virer ton argent vers un « compte sécurisé ».", c:"Le code reçu par SMS ne se donne jamais : c'est lui qui valide leurs opérations."},
+  expl:"C'est une arnaque au <b>faux conseiller bancaire</b>. Le numéro affiché peut être usurpé (<i>spoofing</i>). Raccroche, rappelle toi-même ta banque avec le numéro de ta carte ou de l'appli. Si tu as donné un code ou une information bancaire, contacte tout de suite ta banque."},
+ {id:3, title:"Le placement de l'influenceur", v:"A", min:2,
+  doc:`<div class="hdr">Story • @tom.cash.life • « partenariat »</div>
+   <p>« J'ai investi 100 € dans <b>CryptoGain</b> il y a 2 semaines. Résultat : <button class="clue" data-c="g">+30 % par semaine garantis</button> ! Rejoins mon groupe privé : <button class="clue" data-c="p">les 50 premiers seulement, ça ferme dans 1 h</button>. Pas besoin de connaître la finance, ça marche tout seul 🚀 »</p>`,
+  clues:["g","p"], txt:{g:"Un gain garanti et énorme n'existe pas : plus le gain annoncé est élevé, plus le risque l'est aussi.", p:"Pression du temps et de la rareté, comme pour une vente forcée."},
+  expl:"C'est un <b>faux investissement</b> : les premiers « gagnants » sont payés avec l'argent des suivants, puis tout s'écroule. Les influenceurs sont souvent payés pour en parler. Sur les placements : jamais de gain garanti, jamais d'urgence."},
+ {id:4, title:"Le mail de la mutuelle", v:"R", min:0,
+  doc:`<div class="hdr">E-mail • Mutuelle Horizon (adresse habituelle) • 10h02</div>
+   <p>« Bonjour, votre attestation de mutuelle pour l'année est disponible. Vous la retrouverez dans votre espace personnel, accessible depuis notre application ou en tapant vous-même l'adresse du site. Aucune action n'est nécessaire de votre part. Cordialement. »</p>`,
+  clues:[], txt:{},
+  expl:"Ici, <b>rien d'anormal</b> : aucun lien suspect, aucune urgence, aucune demande de données ni de paiement. Un bon réflexe : même quand un message semble fiable, tape toi-même l'adresse du site plutôt que de cliquer."},
+ {id:5, title:"Le remboursement d'impôts", v:"A", min:3,
+  doc:`<div class="hdr">E-mail • impots-remboursement@service-fisc.info • 08h31</div>
+   <p>« <button class="clue" data-c="s">Cher contribuable</button>, après calcul, <b>vous avez droit à un remboursement de 187,40 €</b>. Pour le recevoir, <button class="clue" data-c="l">cliquez ici et saisissez votre numéro de carte bancaire</button>. <button class="clue" data-c="d">Si vous n'agissez pas avant demain, vous perdrez ce remboursement.</button> »</p>`,
+  clues:["s","l","d"], txt:{s:"Le message ne connaît ni ton nom ni ton numéro : il est envoyé à des milliers de personnes.", l:"Pour un remboursement, on te demande un RIB, jamais un numéro de carte. Le lien mène à un faux site.", d:"Urgence artificielle."},
+  expl:"C'est du <b>phishing</b> qui imite l'administration. Un vrai remboursement apparaît dans ton espace officiel, jamais via un lien dans un mail. Tu peux le signaler sur <b>Signal Spam</b> et via la plateforme gouvernementale <b>17Cyber</b>."},
+ {id:6, title:"L'essai gratuit", v:"P", min:2,
+  doc:`<div class="hdr">Site de vidéos en ligne • page de paiement</div>
+   <p><b>Essai 7 jours à 0,99 €</b></p>
+   <p><label><input type="checkbox" checked disabled> <button class="clue" data-c="c">J'accepte les conditions et l'abonnement automatique</button></label> (case déjà cochée)</p>
+   <p style="font-size:.7rem;color:#586072"><button class="clue" data-c="p">Sans résiliation avant la fin de l'essai, l'abonnement se poursuit à 49,99 € par mois.</button></p>`,
+  clues:["c","p"], txt:{c:"La case pré-cochée t'engage sans que tu l'aies décidé.", p:"Le prix réel est écrit en minuscule, en bas, après le gros prix de 0,99 €."},
+  expl:"Ce n'est pas forcément <b>illégal</b> si tout est écrit, mais c'est un piège : une pratique qui parie sur ta distraction (« dark pattern »). Dans la vraie vie : lire les petites lignes, noter la date de fin d'essai, et en cas de problème signaler sur <b>SignalConso</b> (DGCCRF)."},
+ {id:7, title:"Le smartphone en 3 fois", v:"P", min:2,
+  doc:`<div class="hdr">Site marchand • panier</div>
+   <p>Smartphone dernier cri : <b>589 €</b></p>
+   <p><button class="clue" data-c="s">Payez en 3 fois « sans frais » : 3 × 196,33 €</button> — <button class="clue" data-c="v">Validation en 30 secondes, sans justificatif</button> — <button class="clue" data-c="a">3 achats en 3 fois = 3 prélèvements chaque mois</button></p>`,
+  clues:["s","v","a"], txt:{s:"« Sans frais » pour toi ne veut pas dire sans coût : le marchand paie pour t'inciter à acheter plus cher et plus vite.", v:"Aucune vérification : facile à accepter, facile à regretter.", a:"En cumulant, les prélèvements s'accumulent et peuvent te mettre en difficulté (frais d'incident…)."},
+  expl:"Ce n'est <b>pas une arnaque</b>, et c'est légal. Mais c'est un outil commercial qui pousse à dépenser : l'achat « facile » fait oublier le total des prélèvements du mois. Avant de cliquer : combien me restera-t-il à la fin du mois ?"},
+ {id:8, title:"Le job de rêve", v:"A", min:3,
+  doc:`<div class="hdr">Message privé • « Recrutement étudiant »</div>
+   <p>« Tu veux <button class="clue" data-c="g">gagner 150 € par jour sans diplôme</button> ? Il te suffit de <button class="clue" data-c="m">prêter ton compte bancaire pour recevoir des virements</button> et de nous renvoyer l'argent par un autre moyen. <button class="clue" data-c="r">Tu gardes 10 %, et personne n'a besoin de savoir.</button> »</p>`,
+  clues:["g","m","r"], txt:{g:"Trop beau pour être vrai : un gros gain pour presque aucun travail.", m:"Prêter son compte pour faire circuler de l'argent : c'est le rôle de « mule » dans le blanchiment.", r:"Le secret demandé est le signe qu'il y a quelque chose d'illégal."},
+  expl:"C'est un recrutement de <b>mule financière</b>. Tu risques de perdre ton argent, mais aussi des poursuites pénales, <b>même si tu es mineur(e) ou si tu ne savais pas</b>. Ne réponds pas. Parle-en à un adulte de confiance et signale-le (plateforme PHAROS, 17Cyber)."},
+];
+const VLAB = {A:"Arnaque (illégal)", P:"Légal mais piégeux", R:"Rien d'anormal"};
+const S = {done:{}, found:{}, tries:0};
+const $ = (s)=>document.querySelector(s); const app = $("#app");
+
+function code(){
+  $("#code").innerHTML = WORD.split("").map((ch,i)=>`<div class="slot ${S.done[i+1]?"on":""}">${S.done[i+1]?ch:"?"}</div>`).join("");
+}
+function home(){
+  const nbDone = Object.keys(S.done).length;
+  app.innerHTML = `
+  <div class="intro">
+    <h2 style="margin-top:0">Mission</h2>
+    <p>Huit documents reçus par des jeunes comme toi. Pour chacun : <b>trouve les indices suspects</b>, puis <b>donne ton verdict</b>. Chaque verdict juste révèle une lettre du <b>code secret</b> (8 lettres). Quand tu les as toutes, tape le mot pour ouvrir la dernière porte.</p>
+    <p class="small">Attention : tous les documents ne sont pas des arnaques, et certains pièges sont… légaux.</p>
+  </div>
+  <div class="grid">${DOCS.map(d=>`<button class="tile ${S.done[d.id]?"done":""}" data-id="${d.id}"><div class="n">Document ${d.id}</div><div class="t">${d.title}</div></button>`).join("")}</div>
+  <div class="panel"><b>Dernière porte</b><br>
+    <p class="small">${nbDone<DOCS.length?"Il te reste "+(DOCS.length-nbDone)+" document(s) à examiner.":"Tu as toutes les lettres. Quel est le mot ?"}</p>
+    <input id="word" type="text" maxlength="8" aria-label="Mot secret" ${nbDone<DOCS.length?"disabled":""}>
+    <button class="btn primary" id="try" ${nbDone<DOCS.length?"disabled":""}>Ouvrir</button>
+    <div id="msg"></div></div>`;
+  code();
+  app.querySelectorAll(".tile").forEach(t=>t.addEventListener("click",()=>open(+t.dataset.id)));
+  $("#try").addEventListener("click",()=>{
+    if ($("#word").value.trim().toUpperCase()===WORD) end();
+    else $("#msg").innerHTML = '<div class="fb no">Ce n\'est pas le bon mot. Regarde bien les lettres, dans l\'ordre des documents.</div>';
+  });
+}
+function open(id){
+  const d = DOCS.find(x=>x.id===id); S.found[id]=S.found[id]||{};
+  const found = () => Object.keys(S.found[id]).length;
+  app.innerHTML = `
+  <p><button class="btn" id="back">← Retour</button></p>
+  <div class="panel"><h2 style="margin-top:0">Document ${d.id} : ${d.title}</h2>
+    <p class="small">${d.clues.length?"Clique sur les passages suspects pour les marquer.":"Lis attentivement ce document."}</p>
+    <div class="doc" id="doc">${d.doc}</div>
+    <div class="small" id="cnt"></div>
+    <div id="notes"></div>
+    <h3>Ton verdict</h3>
+    <div class="verdicts" id="vd">
+      <button class="btn" data-v="A">🚨 Arnaque (illégal)</button>
+      <button class="btn" data-v="P">⚠️ Légal mais piégeux</button>
+      <button class="btn" data-v="R">✅ Rien d'anormal</button>
+    </div>
+    <div id="fb"></div></div>`;
+  $("#back").addEventListener("click",home);
+  const upd = () => {
+    $("#cnt").textContent = d.clues.length ? `Indices trouvés : ${found()} / ${d.clues.length}` : "";
+    $("#notes").innerHTML = Object.keys(S.found[id]).map(k=>`<div class="fb hint">🔎 ${d.txt[k]}</div>`).join("");
+  };
+  app.querySelectorAll(".clue").forEach(b=>b.addEventListener("click",()=>{ b.classList.add("found"); if(!S.found[id][b.dataset.c]) window.Suivi && Suivi.ev("indice",{doc:id,c:b.dataset.c}); S.found[id][b.dataset.c]=1; upd(); }));
+  app.querySelectorAll("#vd .btn").forEach(b=>b.addEventListener("click",()=>{
+    if (found() < d.min){ $("#fb").innerHTML = `<div class="fb hint">Cherche encore : il y a au moins ${d.min} indices à repérer avant de te prononcer.</div>`; return; }
+    S.tries++;
+    window.Suivi && Suivi.ev("verdict",{doc:d.id,v:b.dataset.v,ok:b.dataset.v===d.v,nbIndices:found()});
+    if (b.dataset.v===d.v){
+      S.done[d.id]=1; code();
+      const all = Object.keys(S.done).length===DOCS.length;
+      $("#fb").innerHTML = `<div class="fb ok"><b>Bien vu !</b> <span class="tag ${d.v.toLowerCase()}">${VLAB[d.v]}</span><p>${d.expl}</p>
+        <p>🔓 Lettre débloquée : <b style="font-size:1.4rem;color:var(--accent)">${WORD[d.id-1]}</b></p>
+        <button class="btn primary" id="ok">${all?"Aller à la dernière porte":"Document suivant"}</button></div>`;
+      $("#ok").addEventListener("click",home); $("#ok").focus();
+      app.querySelectorAll("#vd .btn").forEach(x=>x.disabled=true);
+    } else {
+      $("#fb").innerHTML = `<div class="fb no"><b>Pas tout à fait.</b> ${d.v==="R" ? "Rien de louche ici : relis sans chercher à tout prix un piège." : d.v==="P" ? "Ce n'est pas forcément illégal, mais regarde qui y gagne et ce que tu ne vois pas." : "Regarde les indices : qui te presse ? qui te demande quoi ?"}</div>`;
+    }
+  }));
+  upd();
+  app.querySelectorAll(".clue").forEach(b=>{ if (S.found[id][b.dataset.c]) b.classList.add("found"); });
+}
+function end(){
+  window.Suivi && Suivi.finish({tries:S.tries, docs:DOCS.length});
+  app.innerHTML = `
+  <div class="panel"><h2 style="margin-top:0">🔓 La porte s'ouvre : SIGNALER</h2>
+    <p>Bravo. Retenir : <b>on ne peut pas toujours éviter le piège, mais on peut le signaler</b>. Chaque signalement protège d'autres personnes.</p>
+    <h3>Que faire si tu reçois une arnaque ?</h3>
+    <ul>
+      <li><b>Un SMS ou un appel frauduleux</b> : transfère le SMS au <b>33700</b> (gratuit), ou signale-le sur 33700.fr.</li>
+      <li><b>Un mail frauduleux</b> : signale-le sur <a href="https://www.signal-spam.fr" target="_blank" rel="noopener">Signal Spam</a>.</li>
+      <li><b>Tu es victime d'une arnaque en ligne</b> : <a href="https://www.cybermalveillance.gouv.fr" target="_blank" rel="noopener">Cybermalveillance.gouv.fr</a> et 17Cyber ; <b>Info Escroqueries</b> : 0 805 805 817 (gratuit, du lundi au vendredi, 9 h à 18 h 30) ; plainte en ligne via la plateforme <b>Thésée</b> (rubrique « Arnaque sur Internet » de service-public.fr).</li>
+      <li><b>Un contenu illicite sur Internet</b> : plateforme <b>PHAROS</b>.</li>
+      <li><b>Une pratique commerciale trompeuse</b> (abonnement piégé, faux site marchand) : <a href="https://signal.conso.gouv.fr" target="_blank" rel="noopener">SignalConso</a>.</li>
+      <li><b>Tu as donné des infos bancaires</b> : contacte immédiatement ta banque, fais opposition à ta carte, et parles-en à un adulte de confiance.</li>
+    </ul>
+    <h3>À discuter</h3>
+    <ul>
+      <li>Qui gagne de l'argent avec une arnaque illégale ? Avec une pratique « légale mais piégeuse » ? Quelle est la différence pour toi ?</li>
+      <li>Qui est le plus exposé : ceux qui ont plus ou moins d'argent, plus ou moins de temps, plus ou moins d'informations ?</li>
+      <li>Est-ce à chacun de « faire attention » tout seul, ou faut-il aussi des règles pour que les entreprises soient obligées d'être claires ? Lesquelles ?</li>
+      <li>Les deux documents « légaux mais piégeux » devraient-ils être interdits ? Qui peut le demander, concrètement ?</li>
+    </ul>
+    <p class="small">Tu as résolu le jeu en ${S.tries} verdict(s). Numéros et plateformes cités : informations publiques à vérifier avant diffusion si elles évoluent.</p>
+    <button class="btn" id="again">Rejouer</button></div>`;
+  $("#again").addEventListener("click",()=>{ S.done={}; S.found={}; S.tries=0; window.Suivi && Suivi.begin("arnaque"); home(); });
+}
+if (window.Suivi) Suivi.ready(()=>{ Suivi.begin("arnaque"); home(); }); else home();
+</script>
+</body>
+</html>

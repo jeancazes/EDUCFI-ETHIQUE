@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Suivi des élèves – EDUCFI critique</title>
+<style>
+  :root{--bg:#0f1b2d;--card:#17263d;--ink:#f2f5fa;--muted:#a9b6c9;--accent:#ffb703;--ok:#4cc38a;--warn:#f0b429;--bad:#ff6b6b;--line:#2c4062}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px}
+  h1{font-size:1.25rem;margin:.2em 0}
+  h2{font-size:1.05rem;margin:.2em 0 .4em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+  input,select,textarea{font:inherit;background:#0f1b2d;color:#fff;border:1px solid #3e5f90;border-radius:8px;padding:8px}
+  button{font:inherit;cursor:pointer;border-radius:8px;padding:7px 12px;border:1px solid #3e5f90;background:#1f3556;color:#fff}
+  button.p{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+  button.d{border-color:#8a3b3b;color:#ffb3b3}
+  button:disabled{opacity:.5;cursor:default}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .muted{color:var(--muted)} .small{font-size:.85rem}
+  table{border-collapse:collapse;width:100%}
+  th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.85rem;position:sticky;top:0;background:var(--card)}
+  tr.row{cursor:pointer} tr.row:hover{background:#1c2f4b}
+  .tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.8rem;border:1px solid var(--line)}
+  .tag.ok{color:var(--ok);border-color:var(--ok)} .tag.run{color:var(--warn);border-color:var(--warn)} .tag.none{color:var(--muted)}
+  .docs{display:flex;gap:3px;margin-top:3px}
+  .doc{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.75rem;border:1px solid var(--line);color:var(--muted)}
+  .doc.g{background:#1e5c3f;color:#fff;border-color:var(--ok)} .doc.y{background:#6b5410;color:#fff;border-color:var(--warn)} .doc.r{background:#6b2a2a;color:#fff;border-color:var(--bad)}
+  .tl{list-style:none;padding:0;margin:0;font-size:.88rem} .tl li{padding:2px 0;border-bottom:1px dotted var(--line)}
+  .tl .t{color:var(--muted);display:inline-block;width:56px}
+  .hide{display:none}
+  .err{color:var(--bad)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media(max-width:800px){.grid2{grid-template-columns:1fr}}
+  .sum{display:flex;gap:10px;flex-wrap:wrap} .sum .k{background:#0f1b2d;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  .sum .k b{display:block;font-size:1.3rem;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Suivi des élèves · EDUCFI critique</h1>
+  <p class="muted small">Espace enseignant. Les élèves sont identifiés par un <b>pseudo</b> et un <b>code de classe</b> uniquement.</p>
+
+  <section class="card" id="login">
+    <h2>Connexion</h2>
+    <div class="bar"><input id="pwd" type="password" placeholder="Mot de passe enseignant" autocomplete="current-password" aria-label="Mot de passe enseignant">
+    <button class="p" id="btnLogin">Entrer</button></div>
+    <p class="err small" id="loginErr"></p>
+    <details><summary class="muted small">Pas de serveur ? Importer un code de bilan élève</summary><div id="importOnly"></div></details>
+  </section>
+
+  <section id="main" class="hide">
+    <div class="card">
+      <div class="bar">
+        <label>Classe <select id="classe" aria-label="Classe"></select></label>
+        <button id="btnRefresh">Actualiser</button>
+        <label class="small"><input type="checkbox" id="auto"> actualisation auto (20 s)</label>
+        <span style="flex:1"></span>
+        <button id="btnCsv">Exporter CSV</button>
+        <button id="btnPurgeClass" class="d">Supprimer la classe</button>
+        <button id="btnLogout">Quitter</button>
+      </div>
+      <p class="small muted" id="info"></p>
+      <div class="sum" id="sum"></div>
+    </div>
+
+    <div class="card" style="overflow-x:auto">
+      <table id="tbl"><thead><tr>
+        <th>Élève</th>
+        <th>Frais · <span class="muted">La journée des frais</span></th>
+        <th>Arnaque · <span class="muted">Arnaque ou pas ? (8 documents)</span></th>
+      </tr></thead><tbody></tbody></table>
+      <p class="muted small" id="empty" hidden>Aucune donnée pour cette classe.</p>
+    </div>
+
+    <div class="card hide" id="detail">
+      <div class="bar"><h2 id="dTitle" style="flex:1"></h2><button id="dClose">Fermer</button><button id="dPurge" class="d">Supprimer cet élève</button></div>
+      <div class="grid2" id="dBody"></div>
+    </div>
+
+    <details class="card"><summary>Importer un code de bilan élève (hors-ligne)</summary>
+      <p class="small muted">Si un élève n'a pas pu envoyer son bilan, il copie son code : collez-le ici (affichage local, non enregistré).</p>
+      <div id="importBox"></div>
+    </details>
+  </section>
+</div>
+
+<script>
+"use strict";
+const API = "../api/list.php";
+const DOCS = ["Le SMS du colis","Le « conseiller » de la banque","Le placement de l'influenceur","Le mail de la mutuelle","Le remboursement d'impôts","L'essai gratuit","Le smartphone en 3 fois","Le job de rêve"];
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let pwd = "", events = [], imported = [], timer = null, openPseudo = null;
+
+function ss(k, v){ try{ if(v===undefined) return sessionStorage.getItem(k); v===null?sessionStorage.removeItem(k):sessionStorage.setItem(k,v);}catch(e){return null;} }
+
+async function call(body){
+  const r = await fetch(API, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(Object.assign({password:pwd}, body))});
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(j.error || ("Erreur " + r.status));
+  return j;
+}
+
+async function login(){
+  pwd = $("#pwd").value || ss("pwd") || "";
+  $("#loginErr").textContent = "";
+  try{
+    const j = await call({action:"classes"});
+    ss("pwd", pwd); $("#login").classList.add("hide"); $("#main").classList.remove("hide");
+    const sel = $("#classe"); const cur = sel.value;
+    sel.innerHTML = j.classes.sort((a,b)=>b.last-a.last).map(c=>`<option value="${esc(c.classe)}">${esc(c.classe)} (${c.eleves} élève${c.eleves>1?"s":""})</option>`).join("");
+    if(cur && [...sel.options].some(o=>o.value===cur)) sel.value = cur;
+    if(!j.classes.length){ events = []; render(); $("#info").textContent = "Aucune classe pour l'instant : donnez un code de classe à vos élèves (ex. 4B-LAB)."; return; }
+    await load();
+  }catch(e){ $("#loginErr").textContent = e.message; ss("pwd", null); }
+}
+async function load(){
+  const classe = $("#classe").value; if(!classe) return;
+  const j = await call({action:"list", classe});
+  events = j.events; render();
+  $("#info").textContent = "Dernière actualisation : " + new Date().toLocaleTimeString("fr-FR") + " · " + events.length + " événements";
+}
+
+// ----- agrégation -----
+function groupBy(list){
+  const map = {};
+  for(const e of list){
+    const p = (map[e.pseudo] = map[e.pseudo] || {pseudo:e.pseudo, games:{}});
+    const g = (p.games[e.game] = p.games[e.game] || {sessions:{}});
+    (g.sessions[e.sid] = g.sessions[e.sid] || []).push(e);
+  }
+  for(const p of Object.values(map)) for(const g of Object.values(p.games)){
+    const arr = Object.values(g.sessions).map(ev=>{ ev.sort((a,b)=>a.ts-b.ts); return ev; });
+    arr.sort((a,b)=>a[0].ts-b[0].ts);
+    g.list = arr; g.last = arr[arr.length-1]; g.n = arr.length;
+  }
+  return map;
+}
+const fmtDur = s => s==null ? "–" : (s>=60 ? Math.floor(s/60)+" min "+String(s%60).padStart(2,"0")+" s" : s+" s");
+const fmtT = ts => new Date(ts).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+
+function sessFrais(ev){
+  const fin = ev.find(e=>e.type==="fin"), q = ev.filter(e=>e.type==="qcm");
+  return {fin: fin ? fin.d : null, qcmOk:q.filter(e=>e.d.ok).length, qcmN:q.length, choix:ev.filter(e=>e.type==="choix").length, t:ev[0].ts};
+}
+function sessArnaque(ev){
+  const v = ev.filter(e=>e.type==="verdict"), docs = {};
+  for(let i=1;i<=8;i++) docs[i] = {err:0, ok:false};
+  v.forEach(e=>{ const d = docs[e.d.doc]; if(!d) return; if(e.d.ok) d.ok = true; else d.err++; });
+  const solved = Object.values(docs).filter(d=>d.ok).length, errs = Object.values(docs).reduce((a,d)=>a+d.err,0);
+  const fin = ev.find(e=>e.type==="fin");
+  return {docs, solved, errs, fin: fin?fin.d:null, t:ev[0].ts};
+}
+function badge(fin, started){ return fin ? '<span class="tag ok">terminé</span>' : started ? '<span class="tag run">en cours</span>' : '<span class="tag none">pas commencé</span>'; }
+
+function cellFrais(g){
+  if(!g) return '<span class="tag none">pas commencé</span>';
+  const s = sessFrais(g.last), f = s.fin;
+  return badge(f,true) + (g.n>1?` <span class="muted small">(${g.n} parties)</span>`:"") +
+    `<div class="small">${f ? `Quiz <b>${f.qcm}/${f.qcmMax}</b> · frais <b>${f.frais} €</b> · chemin « ${esc(f.path)} » · ${fmtDur(f.duree)}` : `${s.choix} choix · quiz ${s.qcmOk}/${s.qcmN}`}</div>`;
+}
+function cellArnaque(g){
+  if(!g) return '<span class="tag none">pas commencé</span>';
+  const s = sessArnaque(g.last);
+  const cells = [1,2,3,4,5,6,7,8].map(i=>{ const d = s.docs[i]; const c = d.ok ? (d.err? "y":"g") : (d.err? "r":""); const t = d.ok ? (d.err? "réussi après "+d.err+" erreur(s)":"réussi du 1er coup") : (d.err? d.err+" erreur(s), non résolu":"pas traité"); return `<span class="doc ${c}" title="${esc(i+" · "+DOCS[i-1]+" : "+t)}">${i}</span>`; }).join("");
+  return badge(s.fin,true) + (g.n>1?` <span class="muted small">(${g.n} parties)</span>`:"") +
+    `<div class="small"><b>${s.solved}/8</b> documents · ${s.errs} erreur(s)${s.fin?" · "+fmtDur(s.fin.duree):""}</div><div class="docs">${cells}</div>`;
+}
+
+function render(){
+  const all = events.concat(imported);
+  const map = groupBy(all), names = Object.keys(map).sort((a,b)=>a.localeCompare(b,"fr"));
+  const tb = $("#tbl tbody"); tb.innerHTML = "";
+  $("#empty").hidden = names.length > 0;
+  let nF = 0, nA = 0, finF = 0, finA = 0;
+  for(const n of names){
+    const p = map[n]; if(p.games.frais){ nF++; if(sessFrais(p.games.frais.last).fin) finF++; } if(p.games.arnaque){ nA++; if(sessArnaque(p.games.arnaque.last).fin) finA++; }
+    const tr = document.createElement("tr"); tr.className = "row"; tr.tabIndex = 0;
+    tr.innerHTML = `<td><b>${esc(n)}</b></td><td>${cellFrais(p.games.frais)}</td><td>${cellArnaque(p.games.arnaque)}</td>`;
+    tr.onclick = () => openDetail(n); tr.onkeydown = e => { if(e.key==="Enter") openDetail(n); };
+    tb.appendChild(tr);
+  }
+  $("#sum").innerHTML = `<div class="k"><b>${names.length}</b>élève(s)</div><div class="k"><b>${finF}/${nF}</b>« Frais » terminé</div><div class="k"><b>${finA}/${nA}</b>« Arnaque » terminé</div>`;
+  if(openPseudo && map[openPseudo]) fillDetail(map[openPseudo]); else if(openPseudo) closeDetail();
+}
+
+function timeline(ev){
+  return '<ul class="tl">' + ev.map(e=>{
+    let t = esc(e.type), d = e.d || {};
+    if(e.type==="debut") t = "Début de partie";
+    else if(e.type==="choix") t = "Choix : " + esc(d.t);
+    else if(e.type==="qcm") t = "Quiz " + (d.i+1) + " : " + (d.ok ? "✔ juste" : "✘ faux");
+    else if(e.type==="indice") t = "Indice repéré (doc " + esc(d.doc) + ")";
+    else if(e.type==="verdict") t = "Doc " + esc(d.doc) + " « " + esc(DOCS[d.doc-1]||"") + " » : verdict " + esc(d.v) + " " + (d.ok ? "✔" : "✘") ;
+    else if(e.type==="fin") t = "<b>Fin</b> · " + fmtDur(d.duree);
+    return `<li><span class="t">${fmtT(e.t||e.ts)}</span> ${t}</li>`;
+  }).join("") + '</ul>';
+}
+function fillDetail(p){
+  $("#dTitle").textContent = p.pseudo;
+  const parts = [];
+  for(const [gk, label] of [["frais","La journée des frais"],["arnaque","Arnaque ou pas ?"]]){
+    const g = p.games[gk]; if(!g) continue;
+    g.list.forEach((ev,i)=>{ parts.push(`<div><h2>${label} · partie ${i+1}/${g.n}</h2>${timeline(ev)}</div>`); });
+  }
+  $("#dBody").innerHTML = parts.join("") || '<p class="muted">Aucune donnée.</p>';
+}
+function openDetail(n){ openPseudo = n; const p = groupBy(events.concat(imported))[n]; fillDetail(p); $("#detail").classList.remove("hide"); $("#detail").scrollIntoView({behavior:"smooth"}); }
+function closeDetail(){ openPseudo = null; $("#detail").classList.add("hide"); }
+
+function csv(){
+  const map = groupBy(events.concat(imported)), rows = [["classe","pseudo","jeu","parties","statut","duree_s","quiz_ok","quiz_total","frais_eur","chemin","docs_reussis","erreurs"]];
+  const classe = $("#classe").value;
+  for(const p of Object.values(map)){
+    if(p.games.frais){ const g = p.games.frais, s = sessFrais(g.last), f = s.fin; rows.push([classe,p.pseudo,"frais",g.n,f?"termine":"en cours",f?f.duree:"",f?f.qcm:s.qcmOk,f?f.qcmMax:s.qcmN,f?f.frais:"",f?f.path:"","",""]); }
+    if(p.games.arnaque){ const g = p.games.arnaque, s = sessArnaque(g.last); rows.push([classe,p.pseudo,"arnaque",g.n,s.fin?"termine":"en cours",s.fin?s.fin.duree:"","","","","",s.solved,s.errs]); }
+  }
+  const q = v => '"' + String(v).replace(/"/g,'""') + '"';
+  const blob = new Blob(["﻿" + rows.map(r=>r.map(q).join(";")).join("\n")], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "suivi_" + classe + ".csv"; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function importUI(box){
+  box.innerHTML = '<textarea rows="3" style="width:100%" placeholder="Collez le code de bilan"></textarea><div class="bar" style="margin-top:6px"><button class="p">Afficher</button><span class="err small"></span></div>';
+  const ta = box.querySelector("textarea"), er = box.querySelector(".err");
+  box.querySelector("button").onclick = () => {
+    try{
+      const j = JSON.parse(decodeURIComponent(escape(atob(ta.value.trim()))));
+      const pseudo = (j.ident && j.ident.pseudo) || "importé-" + (imported.length+1);
+      const sid = "imp" + Date.now();
+      j.events.forEach(e => imported.push({ts:e.t, t:e.t, pseudo, classe:(j.ident&&j.ident.classe)||"", sid:sid+(e.sid||""), game:e.game||j.game, type:e.type, d:e.d||{}}));
+      ta.value = ""; er.textContent = ""; $("#login").classList.add("hide"); $("#main").classList.remove("hide"); render();
+    }catch(e){ er.textContent = "Code invalide."; }
+  };
+}
+
+$("#btnLogin").onclick = login;
+$("#pwd").addEventListener("keydown", e => { if(e.key==="Enter") login(); });
+$("#btnRefresh").onclick = () => load().catch(e => alert(e.message));
+$("#classe").onchange = () => { closeDetail(); load().catch(e=>alert(e.message)); };
+$("#btnCsv").onclick = csv;
+$("#btnLogout").onclick = () => { ss("pwd", null); pwd = ""; location.reload(); };
+$("#dClose").onclick = closeDetail;
+$("#auto").onchange = e => { clearInterval(timer); if(e.target.checked) timer = setInterval(() => load().catch(()=>{}), 20000); };
+$("#btnPurgeClass").onclick = async () => {
+  const c = $("#classe").value; if(!c) return;
+  if(!confirm("Supprimer définitivement toutes les données de la classe " + c + " ?")) return;
+  try{ await call({action:"purge_class", classe:c}); await login(); }catch(e){ alert(e.message); }
+};
+$("#dPurge").onclick = async () => {
+  if(!openPseudo || !confirm("Supprimer définitivement les données de « " + openPseudo + " » ?")) return;
+  try{ await call({action:"purge_pseudo", classe:$("#classe").value, pseudo:openPseudo}); closeDetail(); await load(); }catch(e){ alert(e.message); }
+};
+importUI($("#importBox")); importUI($("#importOnly"));
+if(ss("pwd")){ $("#pwd").value = ss("pwd"); login(); }
+</script>
+</body>
+</html>

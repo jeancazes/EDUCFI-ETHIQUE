@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La journée des frais</title>
+<style>
+  :root{
+    --bg:#0f1b2d; --card:#17263d; --ink:#f2f5fa; --muted:#a9b6c9; --accent:#ffb703; --danger:#ff6b6b; --ok:#4cc38a; --line:#2c4062;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+  .wrap{max-width:760px;margin:0 auto;padding:16px}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 0}
+  h1{font-size:1.15rem;margin:0}
+  .hud{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:.9rem}
+  .pill b{color:var(--accent)}
+  .pill.neg b{color:var(--danger)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:12px 0}
+  .card h2{margin:.1em 0 .5em;font-size:1.25rem}
+  .phone{background:#0a1220;border:2px solid #34507a;border-radius:18px;padding:14px;margin:12px 0;font-size:.95rem}
+  .phone .t{color:var(--muted);font-size:.8rem}
+  .row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding:4px 0}
+  .row:last-child{border:0}
+  button{font:inherit;cursor:pointer}
+  .choices{display:grid;gap:10px;margin-top:14px}
+  .choice{background:#1f3556;color:var(--ink);border:1px solid #3e5f90;border-radius:12px;padding:12px 14px;text-align:left}
+  .choice:hover,.choice:focus-visible{background:#28446e;outline:2px solid var(--accent)}
+  .choice[disabled]{opacity:.55;cursor:default}
+  .primary{background:var(--accent);color:#1b1500;border:0;border-radius:12px;padding:12px 18px;font-weight:700}
+  .primary:focus-visible{outline:3px solid #fff}
+  .info{background:#122b44;border-left:4px solid #5bb2ff;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:.95rem}
+  .warn{background:#3a1d24;border-left:4px solid var(--danger);border-radius:8px;padding:10px 12px;margin:10px 0}
+  .good{background:#12352a;border-left:4px solid var(--ok);border-radius:8px;padding:10px 12px;margin:10px 0}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  th{background:#102038}
+  small,.note{color:var(--muted);font-size:.82rem}
+  .bar{height:14px;background:#0a1220;border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--danger))}
+  ul{padding-left:1.2em}
+  a{color:#8ccaff}
+  footer{color:var(--muted);font-size:.78rem;padding:20px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>💳 La journée des frais</h1>
+    <div class="hud" aria-live="polite">
+      <span class="pill">Solde : <b id="hudSolde">62 €</b></span>
+      <span class="pill neg">Frais payés : <b id="hudFrais">0 €</b></span>
+      <span class="pill">Stress : <b id="hudStress">○○○○○</b></span>
+    </div>
+  </header>
+  <main id="app"></main>
+  <footer>Fiction interactive • personnages, banques et montants fictifs, sauf les plafonds légaux cités dans le jeu (vérifiés sur le site de la Banque de France). À jouer seul(e), 15 à 20 min.</footer>
+</div>
+
+<script src="../../assets/suivi.js"></script>
+<script>
+"use strict";
+// ---------- État ----------
+const S = {
+  solde: 62, frais: 0, stress: 0,
+  pack: false,         // formule Confort acceptée
+  ocf: false,          // offre clientèle fragile prise
+  decouvert: 0,        // découvert autorisé
+  asked: {},           // questions posées à la banque
+  path: "",            // chemin du 5
+  rejets: 0, rejTotal: 0, bank: null, qcm: 0, log: []
+};
+const SALAIRE = 780;
+const $ = (s) => document.querySelector(s);
+const app = $("#app");
+
+function hud(){
+  $("#hudSolde").textContent = S.solde + " €";
+  $("#hudFrais").textContent = S.frais + " €";
+  $("#hudStress").textContent = "●".repeat(Math.min(5,S.stress)) + "○".repeat(5-Math.min(5,S.stress));
+}
+function show(html, onReady){
+  app.innerHTML = html; hud(); window.scrollTo({top:0, behavior:"smooth"});
+  const f = app.querySelector("button"); if (f) f.focus({preventScroll:true});
+  if (onReady) onReady();
+}
+function choices(list){
+  return '<div class="choices">' + list.map((c,i)=>`<button class="choice" data-i="${i}" ${c.off?'disabled':''}>${c.t}</button>`).join("") + '</div>';
+}
+function bind(list){
+  app.querySelectorAll(".choice").forEach(b => b.addEventListener("click", () => { window.Suivi && Suivi.ev("choix", {t: b.textContent.replace(/\s+/g," ").trim().slice(0,120)}); list[+b.dataset.i].go(b); }));
+}
+function scene(html, list){ show(html + choices(list), () => bind(list)); }
+
+// ---------- Scènes ----------
+function intro(){
+  window.Suivi && Suivi.begin("frais");
+  S.solde=62; S.frais=0; S.stress=0; S.pack=false; S.ocf=false; S.decouvert=0; S.asked={}; S.path=""; S.rejets=0; S.rejTotal=0; S.bank=null; S.qcm=0; S.log=[];
+  show(`<div class="card">
+    <h2>Le 5 du mois, 7 h 42</h2>
+    <p>Tu es <b>Camille</b>, 19 ans, apprentie. Tu partages un appartement en colocation. Ton salaire d'apprentie (<b>${SALAIRE} €</b>) arrive normalement le <b>8</b>, mais aujourd'hui, c'est le 5.</p>
+    <p>Tu ouvres l'appli de ta banque.</p>
+    <div class="phone"><div class="t">Banque Alpha • Compte courant</div>
+      <div class="row"><span>Solde</span><b>62,00 €</b></div>
+      <div class="t" style="margin-top:8px">Prélèvements prévus ce soir</div>
+      <div class="row"><span>Loyer (colocation)</span><span>350,00 €</span></div>
+      <div class="row"><span>Abonnement de transport</span><span>40,00 €</span></div>
+      <div class="row"><span>Forfait téléphone</span><span>20,00 €</span></div>
+      <div class="row"><span>Assurance du logement</span><span>12,00 €</span></div>
+    </div>
+    <p><b>422 € à payer ce soir, 62 € sur le compte.</b> Que fais-tu ?</p>
+    <p class="note">Tes décisions ont des conséquences. À la fin, tu verras qui a gagné de l'argent sur ta journée.</p>
+    <button class="primary" id="go">Commencer</button></div>`, () => $("#go").addEventListener("click", s1));
+}
+
+function s1(){
+  scene(`<div class="card"><h2>7 h 45 : quelle est ta première action ?</h2>
+    <p>Les prélèvements passeront ce soir. Ta banque décide dans quel ordre elle les traite.</p></div>`, [
+    {t:"🙈 Rien. Ça passera peut-être…", go:()=>{ S.path="rien"; sRejets(false); }},
+    {t:"☎️ Aller voir la banque pour demander de l'aide avant ce soir", go:()=>{ S.path="banque"; sBanque(); }},
+    {t:"📱 Demander de l'argent à tes parents", go:()=>{ S.path="parents"; sParents(); }},
+    {t:"✉️ Écrire au propriétaire pour décaler le loyer au 9", go:()=>{ S.path="proprio"; sProprio(); }},
+  ]);
+}
+
+// ----- chemin banque -----
+function sBanque(){
+  const q = [
+    {k:"cout", t:"« Combien coûtent les incidents de paiement ? »"},
+    {k:"ocf", t:"« Existe-t-il une offre pour limiter les frais quand on a peu d'argent ? »"},
+    {k:"decouvert", t:"« Pouvez-vous m'autoriser un découvert ? »"},
+  ];
+  const answers = {
+    cout:`<div class="info"><b>Le conseiller :</b> « Une commission d'intervention de 8 € par opération rejetée ou passée à découvert, jusqu'à 80 € par mois. »<br><small>C'est bien le plafond légal pour tous les clients, d'après la Banque de France.</small></div>`,
+    ocf:`<div class="info"><b>Le conseiller :</b> « Oui, l'<b>offre spécifique clientèle fragile</b>. Les commissions d'intervention y sont plafonnées à <b>4 € par opération et 20 € par mois</b>, et les frais d'incident à 20 € par mois et 200 € par an. Je dois vérifier ta situation, mais je peux te la proposer. »<br><small>Cette offre est souvent refusée ou ignorée par les clients, d'après les sites spécialisés. Tu devais poser la question.</small></div>`,
+    decouvert:`<div class="info"><b>Le conseiller :</b> « Avec ton salaire d'apprentie, je peux t'autoriser <b>100 €</b> de découvert. Au-delà, ce sera refusé. »</div>`,
+  };
+  const list = [];
+  q.forEach(x => list.push({t:x.t + (S.asked[x.k] ? " ✔" : ""), off:!!S.asked[x.k], go:()=>{ S.asked[x.k]=true; sBanque(); }}));
+  list.push({t:"✅ J'ai assez d'informations, je décide", go:sBanqueDecide});
+  const done = q.filter(x=>S.asked[x.k]).map(x=>answers[x.k]).join("");
+  scene(`<div class="card"><h2>À l'agence, 9 h 10</h2>
+    <p>Le conseiller t'accueille avec le sourire : « Tout va bien, Camille ? » Tu expliques. Il te propose tout de suite la <b>formule Confort</b> : 12 € par mois, avec une carte « Premium », des alertes SMS et une assurance moyens de paiement. <i>« Ça évite les mauvaises surprises ! »</i></p>
+    <p class="note">Tu peux lui poser des questions. Il répondra honnêtement, mais il ne détaillera pas de lui-même.</p>${done}</div>`, list);
+}
+function sBanqueDecide(){
+  const list = [];
+  list.push({t:"Prendre seulement le découvert autorisé de 100 €", go:()=>{ S.decouvert=100; sRejets(true); }});
+  if (S.asked.ocf) list.push({t:"Demander l'offre spécifique clientèle fragile + le découvert de 100 €", go:()=>{ S.ocf=true; S.decouvert=100; sRejets(true); }});
+  list.push({t:"Accepter la formule Confort (12 € / mois, découvert de 100 € inclus)", go:()=>{ S.pack=true; S.frais+=12; S.solde-=12; S.decouvert=100; S.log.push("Formule Confort : 12 €"); sRejets(true); }});
+  list.push({t:"Refuser tout et rentrer chez toi", go:()=>{ sRejets(false); }});
+  scene(`<div class="card"><h2>Ta décision</h2><p>Le conseiller attend. Il regarde sa montre.</p></div>`, list);
+}
+
+// ----- chemin parents -----
+function sParents(){
+  S.solde += 150; S.stress += 1;
+  scene(`<div class="card"><h2>Un virement… et un silence gêné</h2>
+    <p>Ta mère répond vite : « Je t'envoie 150 €, c'est tout ce que je peux. Tu me rends dès que possible, d'accord ? » Tu te sens mal de demander.</p>
+    <div class="info">Ton solde est maintenant de <b>212 €</b>. Les prélèvements passent dans l'ordre choisi par la banque : transport (40), assurance (12) et téléphone (20) passent. Le <b>loyer (350 €)</b> ne passe pas.</div></div>`, [
+    {t:"Continuer", go:()=>{ S.path="parents"; sRejets(true, {fromParents:true}); }}
+  ]);
+}
+// ----- chemin proprio -----
+function sProprio(){
+  S.stress += 1;
+  scene(`<div class="card"><h2>Le propriétaire répond…</h2>
+    <p>« D'accord pour le 9, mais c'est la dernière fois. » Tu respires. Mais attention : le prélèvement est déjà programmé ce soir.</p>
+    <div class="warn">Le prélèvement ne s'annule pas tout seul. Ton accord avec le propriétaire protège contre ses pénalités, mais pas contre les frais de ta banque.</div></div>`, [
+    {t:"Continuer", go:()=>sRejets(false, {proprio:true})}
+  ]);
+}
+
+// ----- le soir : prélèvements -----
+function sRejets(hasHelp, opt={}){
+  // calcul : ordre fixe transport, assurance, téléphone, loyer
+  let dispo = 62 + (opt.fromParents ? 150 : 0) + (S.decouvert) - (S.pack ? 12 : 0);
+  const order = [["Abonnement de transport",40],["Assurance du logement",12],["Forfait téléphone",20],["Loyer (colocation)",350]];
+  const rejected = [], passed = [];
+  order.forEach(([n,a])=>{ if (dispo >= a){ dispo -= a; passed.push([n,a]); } else rejected.push([n,a]); });
+  const rate = S.ocf ? 4 : 8;
+  const cap = S.ocf ? 20 : 80;
+  const fees = Math.min(cap, rate * rejected.length);
+  S.rejets = rejected.length; S.rejTotal = rejected.reduce((t,x)=>t+x[1],0); S.frais += fees; S.solde = 62 + (opt.fromParents?150:0) - (S.pack?12:0) - passed.reduce((s,x)=>s+x[1],0) - fees;
+  S.stress += rejected.some(r=>r[0].startsWith("Loyer")) && !opt.proprio ? 2 : 0;
+  if (fees) S.log.push("Commissions d'intervention : " + fees + " €");
+  const rows = passed.map(p=>`<tr><td>${p[0]}</td><td>${p[1]},00 €</td><td>✔ payé</td></tr>`).concat(rejected.map(p=>`<tr><td>${p[0]}</td><td>${p[1]},00 €</td><td style="color:var(--danger)">✖ rejeté</td></tr>`)).join("");
+  scene(`<div class="card"><h2>Le soir, 19 h 02 : notification</h2>
+    <table><tr><th>Prélèvement</th><th>Montant</th><th>Résultat</th></tr>${rows}</table>
+    ${fees ? `<div class="warn"><b>Commissions d'intervention : ${fees} €</b><br><small>${rejected.length} opération(s) rejetée(s) × ${rate} € ${S.ocf ? "(plafond de l'offre spécifique : 4 € par opération, 20 € par mois)" : "(plafond légal général : 8 € par opération, 80 € par mois)"}.</small></div>` : `<div class="good">Aucun incident ce soir. Tout est passé.</div>`}
+    <p>Le loyer rejeté ${opt.proprio ? "sera payé le 9 comme convenu avec ton propriétaire" : "devra être représenté : le propriétaire sera prévenu et ta banque peut compter d'autres frais si le compte n'est toujours pas approvisionné"}.</p></div>`, [
+    {t:"Passer au 8 : le salaire arrive", go:s8}
+  ]);
+}
+
+// ----- le 8 -----
+function s8(){
+  S.solde += SALAIRE - S.rejTotal;
+  const pct = Math.round(S.frais / SALAIRE * 1000) / 10;
+  scene(`<div class="card"><h2>Le 8 : ton salaire est enfin là</h2>
+    <div class="phone"><div class="t">Banque Alpha</div><div class="row"><span>Salaire d'apprentie</span><b style="color:var(--ok)">+ ${SALAIRE},00 €</b></div></div>
+    <p>Les prélèvements rejetés sont représentés et passent. Mais ta banque a déjà <b>encaissé ${S.frais} € de frais</b> sur ton compte (${pct} % de ton salaire).</p>
+    ${S.frais ? "" : "<div class=good>Ce mois-ci, tu as échappé aux frais. Mais en as-tu eu seulement le choix ?</div>"}
+    <p>${S.frais >= 16 ? "C'est l'équivalent d'environ " + Math.round(S.frais/4) + " repas à 4 €." : S.frais ? "C'est peu, mais c'est de l'argent que tu n'avais pas." : ""}</p>
+    <div class="info"><b>Le saviez-vous ?</b> Ces frais sont plafonnés par la loi : 8 € par opération et 80 € par mois pour tous les clients ; 4 € par opération et 20 € par mois avec l'offre spécifique clientèle fragile.</div></div>`, [
+    {t:"Je vais comparer les banques", go:sBanques}
+  ]);
+}
+
+// ----- comparer les banques -----
+function sBanques(){
+  const banks = [
+    {k:"classique", n:"Banque Alpha (agence classique)", f:"8 € par mois (carte + conseiller)", d:"Découvert possible, incidents facturés", y:96},
+    {k:"ligne", n:"Banque Zéta (100 % en ligne)", f:"2 € par mois", d:"Carte à autorisation systématique : le paiement est refusé s'il n'y a pas d'argent, donc aucun frais de découvert", y:24},
+    {k:"coop", n:"Banque Mutua (coopérative)", f:"5 € par mois", d:"Offre pour jeunes, agence de proximité, découvert limité", y:60},
+  ];
+  scene(`<div class="card"><h2>Comparer les banques</h2>
+    <p>Tu cherches une banque moins chère. Voici trois offres <b>fictives</b>.</p>
+    <table><tr><th>Banque</th><th>Prix</th><th>Particularités</th></tr>
+    ${banks.map(b=>`<tr><td><b>${b.n}</b></td><td>${b.f}</td><td>${b.d}</td></tr>`).join("")}</table>
+    <p class="note">Aucune offre ne change ton problème de fond : 422 € de charges pour un salaire de ${SALAIRE} €.</p></div>`,
+    banks.map(b=>({t:`Choisir ${b.n.split(" (")[0]}`, go:()=>{ S.bank=b; sQcm(); }})));
+}
+
+// ----- mini QCM droit au compte -----
+const QCM = [
+  {q:"Une banque refuse d'ouvrir ton compte. Tu n'as aucun autre compte. Que peux-tu faire ?",
+   o:["Rien : la banque est libre de refuser", "Demander une attestation de refus, puis saisir la Banque de France qui désigne une banque", "Déposer ta plainte à la police"], a:1,
+   e:"C'est le <b>droit au compte</b> : la banque doit te remettre une attestation de refus ; la Banque de France désigne ensuite un établissement qui t'ouvrira un compte avec des services de base gratuits."},
+  {q:"Un compte ouvert par le droit au compte permet…",
+   o:["un découvert autorisé et un chéquier", "une carte à autorisation systématique, sans découvert", "uniquement de retirer de l'argent à l'agence"], a:1,
+   e:"Ce compte n'ouvre droit à aucun découvert ; la carte refuse les paiements sans provision. Cela protège des frais… mais limite aussi la liberté."},
+  {q:"Qui est le plus protégé des frais d'incident ?",
+   o:["Tout le monde de la même façon", "Les clients repérés comme fragiles ou ayant pris l'offre spécifique", "Ceux qui ont un très bon salaire"], a:1,
+   e:"Les plafonds sont plus bas (4 € / 20 € par mois pour les commissions d'intervention) pour les clients en situation de fragilité. Mais il faut que la banque les repère, ou qu'on pose la question."},
+];
+function sQcm(i=0){
+  if (i >= QCM.length) return sBilan();
+  const q = QCM[i];
+  scene(`<div class="card"><h2>Question ${i+1} / ${QCM.length}</h2><p>${q.q}</p><div id="fb"></div></div>`,
+    q.o.map((t,j)=>({t, go:(b)=>{
+      const ok = j===q.a; if (ok) S.qcm++; window.Suivi && Suivi.ev("qcm", {i, ok});
+      app.querySelectorAll(".choice").forEach(x=>x.disabled=true);
+      $("#fb").innerHTML = `<div class="${ok?'good':'warn'}"><b>${ok?'Bien vu !':'Pas tout à fait.'}</b> ${q.e}</div><button class="primary" id="nx">${i+1<QCM.length?'Question suivante':'Voir le bilan'}</button>`;
+      $("#nx").addEventListener("click", ()=>sQcm(i+1)); $("#nx").focus();
+    }})));
+}
+
+// ----- bilan -----
+function sBilan(){
+  window.Suivi && Suivi.finish({frais:S.frais, stress:S.stress, qcm:S.qcm, qcmMax:QCM.length, path:S.path, ocf:S.ocf, pack:S.pack, decouvert:S.decouvert, bank:S.bank?S.bank.n:null, rejets:S.rejets, solde:S.solde});
+  const yearly = S.bank ? S.bank.y : 0;
+  show(`<div class="card"><h2>Bilan : qui a gagné de l'argent sur ta journée ?</h2>
+    <p>Frais payés ce mois : <b>${S.frais} €</b> (${Math.round(S.frais/SALAIRE*1000)/10} % de ton salaire).<br>
+    Stress ressenti : <b>${"●".repeat(Math.min(5,S.stress))}${"○".repeat(5-Math.min(5,S.stress))}</b>.<br>
+    ${S.bank ? `Banque choisie : <b>${S.bank.n}</b> (≈ ${yearly} € par an d'abonnement).` : ""}<br>
+    Réponses justes au quiz : <b>${S.qcm} / ${QCM.length}</b>.</p>
+    ${S.log.length ? `<div class="info"><b>Ce qui a été facturé :</b><ul>${S.log.map(x=>`<li>${x}</li>`).join("")}</ul></div>` : ""}
+    <div class="bar" aria-label="Part du salaire absorbée par les frais"><i style="width:${Math.min(100,S.frais/SALAIRE*100*8)}%"></i></div>
+    <small>La barre est agrandie ×8 pour être visible.</small>
+    <h3>À toi de réfléchir</h3>
+    <ul>
+      <li>Camille a-t-elle « mal géré » son argent ? Qu'aurait-elle pu faire de mieux ? Qu'est-ce qui dépendait d'elle, et qu'est-ce qui n'en dépendait pas ?</li>
+      <li>Qui a gagné de l'argent sur cette journée ? Combien de personnes comme Camille faut-il pour que ces frais pèsent dans les comptes d'une banque ?</li>
+      <li>La banque a-t-elle proposé spontanément l'offre la moins chère ? Pourquoi ?</li>
+      <li>Qu'est-ce qui rendrait la situation de Camille moins risquée : son comportement individuel, ou une règle collective (salaire versé à date fixe, prélèvement décalable, plafonds plus bas…) ? Qui peut obtenir cela ?</li>
+    </ul>
+    <p class="note">Sources : <a href="https://www.banque-france.fr/fr/a-votre-service/particuliers/connaitre-pratiques-bancaires-assurance/compte-frais/plafonnement-frais-incidents" target="_blank" rel="noopener">Banque de France : plafonnement des frais et offre clientèle fragile</a> • <a href="https://www.defenseurdesdroits.fr/sites/default/files/2023-03/FICHE%2015%20Les%20refus%20d%27ouverture%20de%20compte%20bancaire.pdf" target="_blank" rel="noopener">Défenseur des droits : refus d'ouverture de compte</a></p>
+    <button class="primary" id="again">Rejouer en choisissant autrement</button></div>`, () => $("#again").addEventListener("click", intro));
+}
+if (window.Suivi) Suivi.ready(intro); else intro();
+</script>
+</body>
+</html>

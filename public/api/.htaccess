@@ -1,0 +1,11 @@
+# Les données et la configuration ne doivent jamais être servies.
+<Files "config.php">
+  Require all denied
+</Files>
+<FilesMatch "\.(jsonl|log)$">
+  Require all denied
+</FilesMatch>
+<Files "lib.php">
+  Require all denied
+</Files>
+Options -Indexes

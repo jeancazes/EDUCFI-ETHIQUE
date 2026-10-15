@@ -1,0 +1,6 @@
+public/api/config.php
+public/api/data/
+.DS_Store
+node_modules/
+*.stl
+tools/test/node_modules/

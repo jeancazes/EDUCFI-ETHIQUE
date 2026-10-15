@@ -1,0 +1,67 @@
+name: Déploiement (serveur perso)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier le code (PHP, JS)
+        run: |
+          for f in public/api/*.php; do php -l "$f"; done
+          node --check public/assets/suivi.js
+
+      - name: Générer la configuration enseignant (hash du mot de passe)
+        env:
+          TEACHER_PASSWORD: ${{ secrets.TEACHER_PASSWORD }}
+        run: |
+          test -n "$TEACHER_PASSWORD" || { echo "::error::Secret TEACHER_PASSWORD manquant"; exit 1; }
+          H=$(printf %s "$TEACHER_PASSWORD" | sha256sum | cut -d' ' -f1)
+          printf "<?php define('TEACHER_SHA256', '%s');\n" "$H" > public/api/config.php
+
+      - name: Préparer SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Synchroniser (les données des élèves sont protégées)
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+        run: |
+          rsync -az --delete \
+            --filter='P api/data/' \
+            --chmod=D755,F644 \
+            -e "ssh -i ~/.ssh/deploy -p ${SSH_PORT:-22}" \
+            public/ "$SSH_USER@$SSH_HOST:$REMOTE_PATH/"
+
+      - name: Nettoyer
+        if: always()
+        run: rm -f ~/.ssh/deploy public/api/config.php
+
+# Variante sans SSH (FTP) : remplacer les deux dernières étapes « Préparer SSH » / « Synchroniser » par
+#   - uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+#     with:
+#       server: ${{ secrets.FTP_HOST }}
+#       username: ${{ secrets.FTP_USER }}
+#       password: ${{ secrets.FTP_PASSWORD }}
+#       local-dir: public/
+#       server-dir: ${{ secrets.REMOTE_PATH }}/
+#       exclude: |
+#         **/api/data/**
