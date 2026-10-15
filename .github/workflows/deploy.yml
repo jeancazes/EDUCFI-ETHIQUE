@@ -28,6 +28,19 @@ jobs:
           H=$(printf %s "$TEACHER_PASSWORD" | sha256sum | cut -d' ' -f1)
           printf "<?php define('TEACHER_SHA256', '%s');\n" "$H" > public/api/config.php
 
+      - name: Vérifier les secrets FTP
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+        run: |
+          ko=0
+          for v in FTP_HOST FTP_USER FTP_PASSWORD REMOTE_PATH; do
+            if [ -z "${!v}" ]; then echo "::error::Secret manquant ou vide : $v (Settings > Secrets and variables > Actions > Repository secrets)"; ko=1; fi
+          done
+          exit $ko
+
       - name: Envoyer par FTP (les données des élèves sont protégées)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
